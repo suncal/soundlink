@@ -4,226 +4,254 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SoundLink — send a message with sound, no internet</title>
-<meta name="description" content="Send a text message between two phones using only sound — no internet, WiFi, radio, or satellite. A tone-based acoustic modem running in your browser.">
+<meta name="description" content="Send a text message between two phones using only sound — no internet, WiFi, radio, or satellite. An acoustic modem in your browser. Installable, works fully offline.">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0b0f19">
 <style>
-  :root{--bg:#0b0f19;--panel:#111827;--line:#1f2937;--ink:#e8edf6;--mut:#9aa6bd;--acc:#34d399;--acc2:#22d3ee;--warn:#f59e0b}
+  :root{--bg:#0b0f19;--panel:#111827;--line:#1f2937;--ink:#e8edf6;--mut:#9aa6bd;--acc:#34d399;--acc2:#22d3ee;--warn:#f59e0b;--bad:#ef4444}
   *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);
     font:16px/1.6 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
-  .wrap{max-width:560px;margin:0 auto;padding:24px 18px 60px}
+  .wrap{max-width:560px;margin:0 auto;padding:22px 18px 60px}
   .tag{display:inline-flex;gap:8px;align-items:center;font-size:12px;font-weight:700;color:var(--acc);
     border:1px solid #14532d;background:#0c2118;border-radius:999px;padding:5px 12px;margin-bottom:14px}
   h1{font-size:28px;margin:0 0 6px;letter-spacing:-.02em}
-  .sub{color:var(--mut);margin:0 0 20px}
+  .sub{color:var(--mut);margin:0 0 18px;font-size:15px}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px}
-  .card h2{font-size:14px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);margin:0 0 12px}
-  textarea,input{width:100%;background:#0b0f19;border:1px solid var(--line);border-radius:10px;color:var(--ink);
+  .card h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);margin:0 0 12px}
+  textarea{width:100%;background:#0b0f19;border:1px solid var(--line);border-radius:10px;color:var(--ink);
     font:15px/1.5 inherit;padding:12px;resize:vertical}
-  button{font:600 15px inherit;border-radius:10px;border:1px solid var(--line);padding:12px 18px;cursor:pointer}
+  button{font:600 15px inherit;border-radius:10px;border:1px solid var(--line);padding:12px 16px;cursor:pointer}
   .send{background:linear-gradient(90deg,#10b981,#22d3ee);color:#04121c;border:none;width:100%;margin-top:12px}
   .listen{background:#0b0f19;color:var(--ink);width:100%}
-  .listen.on{background:#3f1d1d;border-color:#ef4444;color:#fecaca}
-  .row{display:flex;gap:10px;align-items:center}
+  .listen.on{background:#3f1d1d;border-color:var(--bad);color:#fecaca}
+  .ghost{background:#0b0f19;color:var(--mut);width:100%;margin-top:10px;font-size:14px}
+  .row{display:flex;gap:10px;align-items:center;justify-content:center}
   .dot{width:9px;height:9px;border-radius:50%;background:#374151;flex:none}
   .dot.live{background:var(--acc);box-shadow:0 0 8px var(--acc);animation:pulse 1.2s infinite}
+  .dot.sync{background:var(--acc2);box-shadow:0 0 10px var(--acc2)}
   @keyframes pulse{50%{opacity:.4}}
-  .log{min-height:96px;font-size:15px}
+  .log{min-height:20px}
   .msg{background:#0c1a20;border:1px solid #164e63;border-radius:10px;padding:10px 12px;margin-top:8px}
   .msg .who{font-size:11px;color:var(--acc2);text-transform:uppercase;letter-spacing:.05em}
-  .status{color:var(--mut);font-size:13px;margin-top:8px;min-height:1.4em}
-  .meter{height:6px;background:#0b0f19;border-radius:3px;overflow:hidden;margin-top:10px;border:1px solid var(--line)}
-  .meter > div{height:100%;width:0;background:linear-gradient(90deg,#22d3ee,#34d399);transition:width .1s}
+  .status{color:var(--mut);font-size:13px;margin-top:10px;min-height:1.4em}
+  .meter{height:8px;background:#0b0f19;border-radius:4px;overflow:hidden;margin-top:12px;border:1px solid var(--line)}
+  .meter > div{height:100%;width:0;background:linear-gradient(90deg,#22d3ee,#34d399);transition:width .08s}
+  .diag{font:12px ui-monospace,Menlo,monospace;color:var(--mut);margin-top:8px;display:flex;justify-content:space-between}
   .foot{color:var(--mut);font-size:13px;margin-top:20px} a{color:var(--acc2)}
-  .hint{font-size:12.5px;color:var(--mut);margin-top:6px}
+  .hint{font-size:12.5px;color:var(--mut);margin-top:8px}
+  details{margin-top:10px} summary{cursor:pointer;color:var(--acc2);font-size:14px}
+  ol{padding-left:20px;color:var(--mut);font-size:14px} li{margin:6px 0}
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="tag">🔊 NO INTERNET · NO WIFI · NO RADIO · NO SATELLITE</div>
   <h1>SoundLink</h1>
-  <p class="sub">Send a text message from one device to another using <b>only sound</b>. Open this page on two
-    phones, put them near each other, type on one and press Send — the other hears it and shows the text. Nothing
-    goes through any network.</p>
+  <p class="sub">Send text from one device to another using <b>only sound</b>. Once this page is open it needs no
+    network at all — the message travels as sound waves through the air.</p>
 
   <div class="card">
-    <h2>Send</h2>
-    <textarea id="msg" rows="2" maxlength="120" placeholder="Type a short message…">hello from sound</textarea>
-    <button class="send" id="sendBtn">▶ Send as sound</button>
-    <div class="hint" id="sendHint">Tip: keep messages short. ~10 characters/second.</div>
+    <h2>1 · Test on THIS device first</h2>
+    <p style="margin:0 0 4px;font-size:14px;color:var(--mut)">Plays a message from your speaker and decodes it back
+      through your own mic — proving the acoustic link works before you try two phones.</p>
+    <button class="ghost" id="loopBtn">🔁 Run self-test on this device</button>
+    <div class="status" id="loopStatus"></div>
   </div>
 
   <div class="card">
-    <h2>Receive</h2>
-    <button class="listen" id="listenBtn"><span class="row" style="justify-content:center"><span class="dot" id="micDot"></span>&nbsp;Start listening</span></button>
+    <h2>2 · Send</h2>
+    <textarea id="msg" rows="2" maxlength="120" placeholder="Type a short message…">hello from sound</textarea>
+    <button class="send" id="sendBtn">▶ Send as sound</button>
+    <div class="hint">Turn the volume up. Keep devices within ~1–2 ft. Quiet room helps.</div>
+  </div>
+
+  <div class="card">
+    <h2>3 · Receive</h2>
+    <button class="listen" id="listenBtn"><span class="row"><span class="dot" id="micDot"></span>&nbsp;Start listening</span></button>
     <div class="meter"><div id="level"></div></div>
+    <div class="diag"><span id="syncState">sync: —</span><span id="lvlText">level: 0%</span></div>
     <div class="log" id="log"></div>
     <div class="status" id="status">Idle. Press “Start listening,” then Send from the other device.</div>
   </div>
 
-  <div class="foot">
-    A tone-based acoustic modem (16-FSK, Goertzel detection, CRC-checked) running entirely in your browser.
-    Short-range, low-bandwidth by nature — built to prove internet-less messaging, not to replace the internet.
-  </div>
+  <details>
+    <summary>How to prove it works with no internet</summary>
+    <ol>
+      <li>Open this page on both phones (internet on, just to load). Tap “Add to Home Screen” to keep it offline.</li>
+      <li>Grant microphone permission on the receiving phone.</li>
+      <li>Put <b>both phones in Airplane Mode</b> ✈️ (kills cellular, WiFi, Bluetooth — not the speaker/mic).</li>
+      <li>On phone B tap <b>Start listening</b>; on phone A type a message and tap <b>Send</b>.</li>
+      <li>It arrives with every radio off — proof it’s the sound.</li>
+    </ol>
+  </details>
+
+  <div class="foot">Acoustic modem (16-tone FSK, relative-energy sync, AGC, CRC-checked). Short-range &amp;
+    low-bandwidth by nature. <span id="pwa"></span></div>
 </div>
 
 <script>
-// ---------------- modem parameters ----------------
-const SYNC_F = 900;                 // preamble tone
-const F0 = 1200, DF = 120, NTONE = 16;   // 16 data tones -> 4 bits/symbol (1200..3000 Hz)
-const DATA_F = Array.from({length:NTONE}, (_,i)=>F0 + i*DF);
-const SYM = 0.060;                  // symbol duration (s)
-const RAMP = 0.006;                 // cosine ramp to avoid clicks
-const PREAMBLE = 6;                 // sync symbols
-let ctx = null;
+// ================= modem parameters =================
+const SYNC_F = 1000;
+const F0 = 1400, DF = 130, NTONE = 16;
+const DATA_F = Array.from({length:NTONE}, (_,i)=>F0 + i*DF);   // 1400..3350 Hz
+const ALLF = [SYNC_F, ...DATA_F];
+const SYM = 0.080, RAMP = 0.008, PRE = 5, GAP = 0.06;
+let ctx=null;
+function ac(){ if(!ctx) ctx=new (window.AudioContext||window.webkitAudioContext)(); return ctx; }
 
-function ac(){ if(!ctx) ctx = new (window.AudioContext||window.webkitAudioContext)(); return ctx; }
+// ================= CRC-8 =================
+function crc8(b){ let c=0; for(const x of b){ c^=x; for(let i=0;i<8;i++) c=(c&0x80)?((c<<1)^0x07)&0xff:(c<<1)&0xff; } return c; }
 
-// ---------------- CRC-8 ----------------
-function crc8(bytes){ let c=0; for(const b of bytes){ c^=b; for(let i=0;i<8;i++) c = (c&0x80)?((c<<1)^0x07)&0xff:(c<<1)&0xff; } return c; }
-
-// ---------------- encode text -> symbol (nibble) stream ----------------
-function textToSymbols(text){
-  const bytes = Array.from(new TextEncoder().encode(text)).slice(0,120);
-  const payload = [bytes.length, ...bytes, crc8(bytes)];
-  const nibbles = [];
-  for(const b of payload){ nibbles.push((b>>4)&0xf, b&0xf); }
-  return nibbles;                   // each in 0..15 -> a data tone
+// ================= text -> symbols =================
+function textToSymbols(t){
+  const bytes=Array.from(new TextEncoder().encode(t)).slice(0,120);
+  const payload=[bytes.length,...bytes,crc8(bytes)], nib=[];
+  for(const b of payload) nib.push((b>>4)&0xf, b&0xf);
+  return nib;
 }
 
-// ---------------- symbols -> audio waveform ----------------
-function synth(nibbles){
-  const sr = ac().sampleRate;
-  const symN = Math.round(SYM*sr), rampN = Math.round(RAMP*sr);
-  const seq = [];
-  for(let i=0;i<PREAMBLE;i++) seq.push({f:SYNC_F});
-  for(const n of nibbles) seq.push({f:DATA_F[n]});
-  const buf = ac().createBuffer(1, seq.length*symN, sr);
-  const d = buf.getChannelData(0);
-  let p=0;
-  for(const s of seq){
-    for(let i=0;i<symN;i++){
-      let a=1;
-      if(i<rampN) a=0.5-0.5*Math.cos(Math.PI*i/rampN);
-      else if(i>symN-rampN) a=0.5-0.5*Math.cos(Math.PI*(symN-i)/rampN);
-      d[p++] = a*0.9*Math.sin(2*Math.PI*s.f*i/sr);
-    }
-  }
+// ================= synth waveform =================
+function synth(nib){
+  const sr=ac().sampleRate, symN=Math.round(SYM*sr), rampN=Math.round(RAMP*sr), gapN=Math.round(GAP*sr);
+  const seq=[]; for(let i=0;i<PRE;i++) seq.push(SYNC_F); for(const n of nib) seq.push(DATA_F[n]);
+  const buf=ac().createBuffer(1, gapN + seq.length*symN + gapN, sr);
+  const d=buf.getChannelData(0); let p=gapN;
+  for(const f of seq){ for(let i=0;i<symN;i++){
+    let a=1; if(i<rampN)a=0.5-0.5*Math.cos(Math.PI*i/rampN); else if(i>symN-rampN)a=0.5-0.5*Math.cos(Math.PI*(symN-i)/rampN);
+    d[p++]=a*0.92*Math.sin(2*Math.PI*f*i/sr);
+  }}
   return buf;
 }
+function play(buf){ const s=ac().createBufferSource(); s.buffer=buf; s.connect(ac().destination); s.start(); return new Promise(r=>s.onended=r); }
 
-function play(buf){
-  const src = ac().createBufferSource(); src.buffer=buf; src.connect(ac().destination); src.start();
-  return new Promise(r=> src.onended=r);
+// ================= Goertzel =================
+function goertzel(x,start,len,freq,sr){
+  const k=2*Math.cos(2*Math.PI*freq/sr); let s1=0,s2=0,s0;
+  for(let i=0;i<len;i++){ s0=x[start+i]+k*s1-s2; s2=s1; s1=s0; }
+  return s1*s1+s2*s2-k*s1*s2;
 }
 
-// ---------------- Goertzel: tone magnitude in a window ----------------
-function goertzel(samples, start, len, freq, sr){
-  const k = 2*Math.cos(2*Math.PI*freq/sr);
-  let s0=0,s1=0,s2=0;
-  for(let i=0;i<len;i++){ s0 = samples[start+i] + k*s1 - s2; s2=s1; s1=s0; }
-  return s1*s1 + s2*s2 - k*s1*s2;
-}
+// ================= decode =================
+function decode(x0, sr){
+  // AGC: remove DC and normalize
+  let m=0; for(let i=0;i<x0.length;i++) m+=x0[i]; m/=x0.length;
+  let pk=1e-9; const x=new Float32Array(x0.length);
+  for(let i=0;i<x0.length;i++){ x[i]=x0[i]-m; if(Math.abs(x[i])>pk)pk=Math.abs(x[i]); }
+  for(let i=0;i<x.length;i++) x[i]/=pk;
 
-// ---------------- decode a recorded buffer -> text (or null) ----------------
-function decode(samples, sr){
-  const symN = Math.round(SYM*sr);
-  const hop = Math.round(symN/3);
-  // 1) find preamble: a run of windows dominated by SYNC_F
-  let best=-1;
-  for(let s=0; s+symN < samples.length - symN*4; s+=hop){
-    let sync = goertzel(samples,s,symN,SYNC_F,sr);
-    let data = 0; for(const f of DATA_F) data=Math.max(data,goertzel(samples,s,symN,f,sr));
-    if(sync > 3*data && sync > 1e-4){ best=s; break; }
+  const symN=Math.round(SYM*sr), hop=Math.round(symN/8);
+  // relative sync ratio over sliding windows
+  const ratio=(s)=>{ const sy=goertzel(x,s,symN,SYNC_F,sr); let da=0; for(const f of DATA_F) da=Math.max(da,goertzel(x,s,symN,f,sr)); return sy/(sy+da+1e-12); };
+  // find preamble: run of high sync ratio
+  let pre=-1, run=0;
+  for(let s=0;s+symN<x.length;s+=hop){ if(ratio(s)>0.55){ if(run===0)pre=s; run++; if(run>=3) break; } else run=0; }
+  if(pre<0) return null;
+  // trailing edge -> data start
+  let e=pre; while(e+symN<x.length && ratio(e)>0.45) e+=hop;
+  const detect=(c)=>{ const a=c+Math.round(0.2*symN), L=Math.round(0.6*symN); let bi=-1,bm=-1;
+    for(let n=0;n<NTONE;n++){ const v=goertzel(x,a,L,DATA_F[n],sr); if(v>bm){bm=v;bi=n;} } return bi; };
+  // try a few timing offsets; accept the first CRC-valid frame
+  for(let off=-Math.round(symN*0.35); off<=Math.round(symN*0.35); off+=Math.round(symN/6)){
+    const t0=e+off; if(t0<0) continue;
+    const nAt=(i)=>{ const c=t0+Math.round(i*symN); return (c+symN<=x.length)?detect(c):-1; };
+    const h=nAt(0), l=nAt(1); if(h<0||l<0) continue; const L=(h<<4)|l; if(L<1||L>120) continue;
+    const need=2+L*2+2, nib=[]; let ok=true;
+    for(let i=0;i<need;i++){ const v=nAt(i); if(v<0){ok=false;break;} nib.push(v); }
+    if(!ok) continue;
+    const by=[]; for(let i=0;i<nib.length;i+=2) by.push((nib[i]<<4)|nib[i+1]);
+    const L2=by[0], data=by.slice(1,1+L2), crc=by[1+L2];
+    if(crc8(data)===crc){ try{ return new TextDecoder().decode(new Uint8Array(data)); }catch(_){ } }
   }
-  if(best<0) return null;
-  // 2) walk to end of preamble (last strong SYNC window), then align symbol clock
-  let e=best;
-  while(e+symN<samples.length){
-    const sync=goertzel(samples,e,symN,SYNC_F,sr);
-    let data=0; for(const f of DATA_F) data=Math.max(data,goertzel(samples,e,symN,f,sr));
-    if(sync>1.5*data) e+=hop; else break;
-  }
-  const t0 = e;                     // first data symbol starts around here
-  // 3) read nibbles at symbol centers until we can parse a valid frame
-  const readNib = (idx)=>{
-    const c = t0 + Math.round(idx*symN);
-    if(c+symN>samples.length) return -1;
-    let bi=-1,bm=-1;
-    for(let n=0;n<NTONE;n++){ const m=goertzel(samples,c,symN,DATA_F[n],sr); if(m>bm){bm=m;bi=n;} }
-    return bi;
-  };
-  const lenHi=readNib(0), lenLo=readNib(1);
-  if(lenHi<0||lenLo<0) return null;
-  const L=(lenHi<<4)|lenLo;
-  if(L<1||L>120) return null;
-  const need = 2 + L*2 + 2;         // len + data + crc, in nibbles
-  const nib=[]; for(let i=0;i<need;i++){ const v=readNib(i); if(v<0) return null; nib.push(v); }
-  const bytes=[]; for(let i=0;i<nib.length;i+=2) bytes.push((nib[i]<<4)|nib[i+1]);
-  const L2=bytes[0], data=bytes.slice(1,1+L2), crc=bytes[1+L2];
-  if(crc8(data)!==crc) return null; // integrity check
-  try{ return new TextDecoder().decode(new Uint8Array(data)); }catch(e){ return null; }
+  return null;
 }
 
-// ---------------- UI: send ----------------
-document.getElementById('sendBtn').onclick = async ()=>{
-  const t = document.getElementById('msg').value.trim(); if(!t) return;
-  await ac().resume();
-  const btn=document.getElementById('sendBtn'); btn.disabled=true; btn.textContent='♪ sending…';
-  await play(synth(textToSymbols(t)));
-  btn.disabled=false; btn.textContent='▶ Send as sound';
+// ================= UI: send =================
+document.getElementById('sendBtn').onclick=async()=>{
+  const t=document.getElementById('msg').value.trim(); if(!t) return;
+  await ac().resume(); const b=document.getElementById('sendBtn'); b.disabled=true; b.textContent='♪ sending…';
+  await play(synth(textToSymbols(t))); b.disabled=false; b.textContent='▶ Send as sound';
 };
 
-// ---------------- UI: listen (record + periodic decode) ----------------
-let listening=false, micStream=null, node=null, ring=[], ringMax, lastShown='';
-document.getElementById('listenBtn').onclick = async ()=>{
-  const btn=document.getElementById('listenBtn'), dot=document.getElementById('micDot');
-  if(listening){ stopListen(); btn.classList.remove('on'); dot.classList.remove('live');
-    btn.querySelector('.row').lastChild.textContent=' Start listening'; return; }
-  try{
-    micStream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
-  }catch(e){ setStatus('Microphone permission denied.'); return; }
+// ================= mic capture (circular buffer) =================
+let listening=false, micStream=null, node=null, sink=null, ringBuf=null, ringLen=0, ringPos=0, lastShown='';
+async function startMic(){
+  try{ micStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}}); }
+  catch(e){ setStatus('Microphone permission denied.'); return false; }
   await ac().resume();
-  const sr=ac().sampleRate; ringMax=Math.round(sr*6); ring=[];
+  const sr=ac().sampleRate; ringLen=Math.round(sr*5); ringBuf=new Float32Array(ringLen); ringPos=0;
   const src=ac().createMediaStreamSource(micStream);
-  node=ac().createScriptProcessor(4096,1,1);
-  node.onaudioprocess=(ev)=>{
-    const inp=ev.inputBuffer.getChannelData(0);
-    let peak=0; for(let i=0;i<inp.length;i++){ ring.push(inp[i]); peak=Math.max(peak,Math.abs(inp[i])); }
-    while(ring.length>ringMax) ring.shift();
-    document.getElementById('level').style.width=Math.min(100,peak*180)+'%';
-  };
-  src.connect(node); node.connect(ac().destination);
+  node=ac().createScriptProcessor(2048,1,1);
+  node.onaudioprocess=(ev)=>{ const inp=ev.inputBuffer.getChannelData(0); let pk=0;
+    for(let i=0;i<inp.length;i++){ ringBuf[ringPos]=inp[i]; ringPos=(ringPos+1)%ringLen; if(Math.abs(inp[i])>pk)pk=Math.abs(inp[i]); }
+    const lv=Math.min(100,Math.round(pk*160)); document.getElementById('level').style.width=lv+'%';
+    document.getElementById('lvlText').textContent='level: '+lv+'%'; };
+  sink=ac().createGain(); sink.gain.value=0;           // keep processor alive WITHOUT feedback
+  src.connect(node); node.connect(sink); sink.connect(ac().destination);
+  return true;
+}
+function snapshot(){ const out=new Float32Array(ringLen); for(let i=0;i<ringLen;i++) out[i]=ringBuf[(ringPos+i)%ringLen]; return out; }
+function stopMic(){ if(node)node.disconnect(); if(sink)sink.disconnect(); if(micStream)micStream.getTracks().forEach(t=>t.stop()); }
+
+document.getElementById('listenBtn').onclick=async()=>{
+  const btn=document.getElementById('listenBtn'), dot=document.getElementById('micDot');
+  if(listening){ listening=false; stopMic(); btn.classList.remove('on'); dot.classList.remove('live');
+    btn.querySelector('.row').lastChild.textContent=' Start listening'; setStatus('Stopped.'); return; }
+  if(!await startMic()) return;
   listening=true; btn.classList.add('on'); dot.classList.add('live');
-  btn.querySelector('.row').lastChild.textContent=' Stop listening';
-  setStatus('Listening… send from the other device.');
+  btn.querySelector('.row').lastChild.textContent=' Stop listening'; setStatus('Listening… send from the other device.');
   scanLoop();
 };
-function stopListen(){ listening=false; if(node)node.disconnect(); if(micStream)micStream.getTracks().forEach(t=>t.stop()); setStatus('Stopped.'); }
 function scanLoop(){
   if(!listening) return;
-  if(ring.length>Math.round(ac().sampleRate*0.8)){
-    const txt=decode(Float32Array.from(ring), ac().sampleRate);
-    if(txt && txt!==lastShown){ lastShown=txt; showMsg(txt); ring=[]; }
-  }
-  setTimeout(scanLoop, 250);
+  const txt=decode(snapshot(), ac().sampleRate);
+  const sd=document.getElementById('syncState');
+  if(txt && txt!==lastShown){ lastShown=txt; showMsg(txt); sd.textContent='sync: locked ✓'; }
+  else if(!txt) sd.textContent='sync: listening…';
+  setTimeout(scanLoop,220);
 }
-function showMsg(t){
-  const log=document.getElementById('log');
-  const d=document.createElement('div'); d.className='msg';
+function showMsg(t){ const d=document.createElement('div'); d.className='msg';
   d.innerHTML='<div class="who">received by sound</div>'+t.replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
-  log.prepend(d); setStatus('Message received ✓');
-}
+  document.getElementById('log').prepend(d); setStatus('Message received ✓'); }
 function setStatus(s){ document.getElementById('status').textContent=s; }
 
-// ---------------- self-test hook (no mic): verify encode->decode ----------------
-window.__selftest = (text, snrDb)=>{
-  const buf=synth(textToSymbols(text)); const sr=ac().sampleRate;
-  let s=Array.from(buf.getChannelData(0));
-  // pad with silence both sides (simulate detection in a longer recording)
-  const pad=new Array(Math.round(sr*0.2)).fill(0); s=[...pad,...s,...pad];
-  if(snrDb!==undefined){ const p=s.reduce((a,b)=>a+b*b,0)/s.length; const sig=Math.sqrt(p/Math.pow(10,snrDb/10));
-    s=s.map(v=>v+ (Math.random()*2-1)*sig*1.732); }
+// ================= same-device acoustic self-test =================
+document.getElementById('loopBtn').onclick=async()=>{
+  const st=document.getElementById('loopStatus'); st.style.color='var(--mut)'; st.textContent='starting mic…';
+  if(!await startMic()){ return; }
+  const probe='soundlink test '+Math.floor(Math.random()*90+10);
+  let got=null; let scanning=true;
+  (function loop(){ if(!scanning) return; const r=decode(snapshot(),ac().sampleRate); if(r){got=r;scanning=false;return;} setTimeout(loop,150); })();
+  st.textContent='playing test tone… listen';
+  await play(synth(textToSymbols(probe)));
+  setTimeout(()=>{ scanning=false; stopMic();
+    if(got===probe){ st.style.color='var(--acc)'; st.textContent='✓ Acoustic link works on this device! ("'+got+'")'; }
+    else if(got){ st.style.color='var(--warn)'; st.textContent='Partial: heard "'+got+'" (expected "'+probe+'"). Try louder / quieter room.'; }
+    else{ st.style.color='var(--bad)'; st.textContent='✗ Not decoded. Raise volume, reduce background noise, and ensure mic permission is granted.'; }
+  }, 900);
+};
+
+// ================= realistic acoustic self-test hook (for automated checks) =================
+window.__selftest=(text, snrDb, reverb)=>{
+  const sr=ac().sampleRate; const buf=synth(textToSymbols(text)); let s=Array.from(buf.getChannelData(0));
+  if(reverb){ // dominant direct + short decaying tail (room)
+    const n=Math.round(sr*0.03); const ir=new Float32Array(n); ir[0]=1;
+    for(let i=1;i<n;i++) ir[i]=(Math.random()*2-1)*0.25*Math.exp(-i/(n/3));
+    let e=0; for(const v of ir) e+=v*v; for(let i=0;i<n;i++) ir[i]/=Math.sqrt(e);
+    const y=new Float32Array(s.length+n); for(let i=0;i<s.length;i++){ const v=s[i]; for(let j=0;j<n;j++) y[i+j]+=v*ir[j]; }
+    s=Array.from(y);
+  }
+  // highpass (remove DC / low rumble, mimic mic): subtract slow moving average
+  const w=Math.round(sr/200); let acc=0; const ma=new Float32Array(s.length);
+  for(let i=0;i<s.length;i++){ acc+=s[i]; if(i>=w)acc-=s[i-w]; ma[i]=acc/Math.min(i+1,w); }
+  for(let i=0;i<s.length;i++) s[i]-=ma[i];
+  if(snrDb!==undefined){ let p=0; for(const v of s)p+=v*v; p/=s.length; const sig=Math.sqrt(p/Math.pow(10,snrDb/10));
+    for(let i=0;i<s.length;i++) s[i]+=(Math.random()*2-1)*sig*1.732; }
   return decode(Float32Array.from(s), sr);
 };
+
+// ================= PWA offline =================
+if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').then(()=>{
+  document.getElementById('pwa').textContent='Offline-ready — installable to your home screen.'; }).catch(()=>{}); }
 </script>
 </body>
 </html>
