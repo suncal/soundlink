@@ -60,16 +60,17 @@
 
   <div class="card">
     <h2>2 · Send</h2>
-    <textarea id="msg" rows="2" maxlength="120" placeholder="Type a short message…">hello from sound</textarea>
+    <textarea id="msg" rows="2" maxlength="90" placeholder="Type a message (up to ~90 chars)…">hello from sound</textarea>
     <button class="send" id="sendBtn">▶ Send as sound</button>
-    <div class="hint">Turn the volume up. Keep devices within ~1–2 ft. Quiet room helps.</div>
+    <div class="hint">Turn volume to max for more range. Higher volume + a quiet room = longer distance. ~10 chars/sec.</div>
   </div>
 
   <div class="card">
     <h2>3 · Receive</h2>
     <button class="listen" id="listenBtn"><span class="row"><span class="dot" id="micDot"></span>&nbsp;Start listening</span></button>
     <div class="meter"><div id="level"></div></div>
-    <div class="diag"><span id="syncState">sync: —</span><span id="lvlText">level: 0%</span></div>
+    <canvas id="spec" width="520" height="86" style="width:100%;height:86px;background:#0b0f19;border:1px solid var(--line);border-radius:8px;margin-top:12px"></canvas>
+    <div class="diag"><span id="syncState">sync: —</span><span>4–9 kHz · orange=sync green=data</span><span id="lvlText">level: 0%</span></div>
     <div class="log" id="log"></div>
     <div class="status" id="status">Idle. Press “Start listening,” then Send from the other device.</div>
   </div>
@@ -91,11 +92,14 @@
 
 <script>
 // ================= modem parameters =================
-const SYNC_F = 1000;
-const F0 = 1400, DF = 130, NTONE = 16;
-const DATA_F = Array.from({length:NTONE}, (_,i)=>F0 + i*DF);   // 1400..3350 Hz
+// Tones live ABOVE the human-voice band (~300-3400 Hz) so phone echo-cancellers /
+// noise-suppressors don't destroy them. 5000-8000 Hz is above voice processing yet
+// still well within phone speaker/mic response.
+const SYNC_F = 4600;
+const F0 = 5000, DF = 200, NTONE = 16;
+const DATA_F = Array.from({length:NTONE}, (_,i)=>F0 + i*DF);   // 5000..8000 Hz
 const ALLF = [SYNC_F, ...DATA_F];
-const SYM = 0.080, RAMP = 0.008, PRE = 5, GAP = 0.06;
+const SYM = 0.100, RAMP = 0.010, PRE = 8, GAP = 0.06;   // longer symbols+preamble = more range
 let ctx=null;
 function ac(){ if(!ctx) ctx=new (window.AudioContext||window.webkitAudioContext)(); return ctx; }
 
@@ -139,15 +143,17 @@ function decode(x0, sr){
   for(let i=0;i<x0.length;i++){ x[i]=x0[i]-m; if(Math.abs(x[i])>pk)pk=Math.abs(x[i]); }
   for(let i=0;i<x.length;i++) x[i]/=pk;
 
-  const symN=Math.round(SYM*sr), hop=Math.round(symN/8);
-  // relative sync ratio over sliding windows
-  const ratio=(s)=>{ const sy=goertzel(x,s,symN,SYNC_F,sr); let da=0; for(const f of DATA_F) da=Math.max(da,goertzel(x,s,symN,f,sr)); return sy/(sy+da+1e-12); };
-  // find preamble: run of high sync ratio
+  const symN=Math.round(SYM*sr), hop=Math.round(symN/6);
+  // CHEAP relative sync: fraction of window energy concentrated at the SYNC tone.
+  // ~1 for a pure sync tone, low for data/noise. One Goertzel + one energy sum per window.
+  const purity=(s)=>{ let e=1e-12; const end=Math.min(s+symN,x.length); for(let i=s;i<end;i++) e+=x[i]*x[i];
+    return goertzel(x,s,symN,SYNC_F,sr)/(e*symN/2); };
+  // find preamble: run of high sync purity
   let pre=-1, run=0;
-  for(let s=0;s+symN<x.length;s+=hop){ if(ratio(s)>0.55){ if(run===0)pre=s; run++; if(run>=3) break; } else run=0; }
+  for(let s=0;s+symN<x.length;s+=hop){ if(purity(s)>0.30){ if(run===0)pre=s; run++; if(run>=4) break; } else run=0; }
   if(pre<0) return null;
   // trailing edge -> data start
-  let e=pre; while(e+symN<x.length && ratio(e)>0.45) e+=hop;
+  let e=pre; while(e+symN<x.length && purity(e)>0.18) e+=hop;
   const detect=(c)=>{ const a=c+Math.round(0.2*symN), L=Math.round(0.6*symN); let bi=-1,bm=-1;
     for(let n=0;n<NTONE;n++){ const v=goertzel(x,a,L,DATA_F[n],sr); if(v>bm){bm=v;bi=n;} } return bi; };
   // try a few timing offsets; accept the first CRC-valid frame
@@ -175,10 +181,14 @@ document.getElementById('sendBtn').onclick=async()=>{
 // ================= mic capture (circular buffer) =================
 let listening=false, micStream=null, node=null, sink=null, ringBuf=null, ringLen=0, ringPos=0, lastShown='';
 async function startMic(){
-  try{ micStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}}); }
+  try{ micStream=await navigator.mediaDevices.getUserMedia({audio:{
+        echoCancellation:false, noiseSuppression:false, autoGainControl:false,
+        googEchoCancellation:false, googAutoGainControl:false, googAutoGainControl2:false,
+        googNoiseSuppression:false, googHighpassFilter:false, googTypingNoiseDetection:false,
+        mozAutoGainControl:false, mozNoiseSuppression:false }}); }
   catch(e){ setStatus('Microphone permission denied.'); return false; }
   await ac().resume();
-  const sr=ac().sampleRate; ringLen=Math.round(sr*5); ringBuf=new Float32Array(ringLen); ringPos=0;
+  const sr=ac().sampleRate; ringLen=Math.round(sr*20); ringBuf=new Float32Array(ringLen); ringPos=0;  // 20s -> supports long messages
   const src=ac().createMediaStreamSource(micStream);
   node=ac().createScriptProcessor(2048,1,1);
   node.onaudioprocess=(ev)=>{ const inp=ev.inputBuffer.getChannelData(0); let pk=0;
@@ -187,10 +197,33 @@ async function startMic(){
     document.getElementById('lvlText').textContent='level: '+lv+'%'; };
   sink=ac().createGain(); sink.gain.value=0;           // keep processor alive WITHOUT feedback
   src.connect(node); node.connect(sink); sink.connect(ac().destination);
+  analyser=ac().createAnalyser(); analyser.fftSize=8192; analyser.smoothingTimeConstant=0.4;
+  src.connect(analyser); drawSpectrum();
   return true;
 }
+let analyser=null, rafId=null;
+function drawSpectrum(){
+  const cv=document.getElementById('spec'); if(!cv||!analyser) return;
+  const g=cv.getContext('2d'), sr=ac().sampleRate, binHz=sr/analyser.fftSize;
+  const fLo=4000, fHi=9000, iLo=Math.floor(fLo/binHz), iHi=Math.ceil(fHi/binHz);
+  const data=new Uint8Array(analyser.frequencyBinCount);
+  const W=cv.width, H=cv.height;
+  function frame(){
+    if(!analyser){ return; }
+    analyser.getByteFrequencyData(data);
+    g.clearRect(0,0,W,H);
+    g.fillStyle='#f59e0b30'; let xs=(SYNC_F/binHz-iLo)/(iHi-iLo)*W; g.fillRect(xs-2,0,4,H);
+    g.fillStyle='#34d39322'; for(const f of DATA_F){ const x=(f/binHz-iLo)/(iHi-iLo)*W; g.fillRect(x-1,0,2,H); }
+    for(let i=iLo;i<iHi;i++){ const x=(i-iLo)/(iHi-iLo)*W, h=data[i]/255*H;
+      g.fillStyle = data[i]>120 ? '#34d399' : '#22d3ee88'; g.fillRect(x,H-h,Math.max(1,W/(iHi-iLo)),h); }
+    rafId=requestAnimationFrame(frame);
+  }
+  frame();
+}
 function snapshot(){ const out=new Float32Array(ringLen); for(let i=0;i<ringLen;i++) out[i]=ringBuf[(ringPos+i)%ringLen]; return out; }
-function stopMic(){ if(node)node.disconnect(); if(sink)sink.disconnect(); if(micStream)micStream.getTracks().forEach(t=>t.stop()); }
+function clearRing(){ if(ringBuf) ringBuf.fill(0); ringPos=0; }
+let muteUntil=0;
+function stopMic(){ if(rafId)cancelAnimationFrame(rafId); analyser=null; if(node)node.disconnect(); if(sink)sink.disconnect(); if(micStream)micStream.getTracks().forEach(t=>t.stop()); }
 
 document.getElementById('listenBtn').onclick=async()=>{
   const btn=document.getElementById('listenBtn'), dot=document.getElementById('micDot');
@@ -203,10 +236,14 @@ document.getElementById('listenBtn').onclick=async()=>{
 };
 function scanLoop(){
   if(!listening) return;
-  const txt=decode(snapshot(), ac().sampleRate);
   const sd=document.getElementById('syncState');
-  if(txt && txt!==lastShown){ lastShown=txt; showMsg(txt); sd.textContent='sync: locked ✓'; }
-  else if(!txt) sd.textContent='sync: listening…';
+  if(performance.now() < muteUntil){ sd.textContent='sync: got it — ready for next'; setTimeout(scanLoop,150); return; }
+  const txt=decode(snapshot(), ac().sampleRate);
+  if(txt){
+    showMsg(txt); sd.textContent='sync: locked ✓';
+    clearRing();                       // discard the decoded message so the NEXT one is heard fresh
+    muteUntil=performance.now()+700;   // brief cooldown to avoid re-reading its tail
+  } else sd.textContent='sync: listening…';
   setTimeout(scanLoop,220);
 }
 function showMsg(t){ const d=document.createElement('div'); d.className='msg';
